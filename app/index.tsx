@@ -4,7 +4,7 @@ import * as Haptics from "expo-haptics"; // Native module via Expo
 import * as React from "react";
 import { useMemo, useState } from "react";
 import { FlatList, Platform, SafeAreaView, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
-import { Appbar, Avatar, Badge, Banner, Button, Card, Divider, MD3DarkTheme, MD3LightTheme, Provider as PaperProvider, Switch, Text, TextInput } from "react-native-paper";
+import { Appbar, Avatar, Banner, Button, Card, Divider, MD3DarkTheme, MD3LightTheme, Provider as PaperProvider, Switch, Text, TextInput } from "react-native-paper";
 import { Provider as ReduxProvider, useDispatch, useSelector } from "react-redux";
 
 /********************
@@ -17,7 +17,7 @@ import { Provider as ReduxProvider, useDispatch, useSelector } from "react-redux
 // UI slice: theme + banners
 const uiSlice = createSlice({
   name: "ui",
-  initialState: { darkMode: false, showBanner: true },
+  initialState: { darkMode: false, showBanner: true, showAddTodoBanner: false },
   reducers: {
     toggleDarkMode(state) {
       state.darkMode = !state.darkMode;
@@ -25,25 +25,11 @@ const uiSlice = createSlice({
     dismissBanner(state) {
       state.showBanner = false;
     },
-  },
-});
-
-// Counter slice to demonstrate basic actions
-const counterSlice = createSlice({
-  name: "counter",
-  initialState: { value: 0 },
-  reducers: {
-    increment(state) {
-      state.value += 1;
+    showAddTodoBanner(state) {
+      state.showAddTodoBanner = true;
     },
-    decrement(state) {
-      state.value -= 1;
-    },
-    reset(state) {
-      state.value = 0;
-    },
-    addByAmount(state, action) {
-      state.value += action.payload;
+    dismissAddTodoBanner(state) {
+      state.showAddTodoBanner = false;
     },
   },
 });
@@ -74,14 +60,12 @@ const todosSlice = createSlice({
   },
 });
 
-const { toggleDarkMode, dismissBanner } = uiSlice.actions;
-const { increment, decrement, reset, addByAmount } = counterSlice.actions;
+const { toggleDarkMode, dismissBanner, showAddTodoBanner, dismissAddTodoBanner } = uiSlice.actions;
 const { addTodo, toggleTodo, removeTodo, clearTodos } = todosSlice.actions;
 
 const store = configureStore({
   reducer: {
     ui: uiSlice.reducer,
-    counter: counterSlice.reducer,
     todos: todosSlice.reducer,
   },
 });
@@ -122,6 +106,7 @@ function AppScaffold() {
   const { width } = useWindowDimensions();
   const isTablet = width >= 768;
   const showBanner = useSelector((s) => s.ui.showBanner);
+  const showAddTodoBanner = useSelector((s) => s.ui.showAddTodoBanner);
 
   return (
     <View style={[styles.container, isTablet && styles.containerTablet]}>
@@ -130,15 +115,15 @@ function AppScaffold() {
         <DarkModeSwitch />
       </Appbar.Header>
 
-      {showBanner && (
+      {/* Todo added notification banner moved here */}
+      {showAddTodoBanner && (
         <Banner
           visible
-          actions={[{ label: "Got it", onPress: () => dispatch(dismissBanner()) }]}
-          icon={({ size }) => (
-            <Avatar.Icon size={size} icon="information-outline" />
-          )}
+          actions={[{ label: "Dismiss", onPress: () => dispatch(dismissAddTodoBanner()) }]}
+          icon="check-circle"
+          style={{ backgroundColor: '#d0f0c0' }} // optional light green background for success
         >
-          This screen demonstrates Redux state, responsive layout, and native modules (Haptics, Device).
+          Todo added successfully!
         </Banner>
       )}
 
@@ -148,12 +133,7 @@ function AppScaffold() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={[styles.column, isTablet && styles.columnTablet]}>
-          <CounterCard />
-          <LibraryCard />
-        </View>
-        <View style={[styles.column, isTablet && styles.columnTablet]}>
           <TodosCard />
-          <NativeModulesCard />
         </View>
       </ScrollView>
 
@@ -170,7 +150,9 @@ function DarkModeSwitch() {
   const darkMode = useSelector((s) => s.ui.darkMode);
   return (
     <View style={{ flexDirection: "row", alignItems: "center", paddingRight: 12 }}>
-      <Text accessibilityRole="header" style={{ marginRight: 8 }}>{darkMode ? "Dark" : "Light"}</Text>
+      <Text accessibilityRole="header" style={{ marginRight: 8 }}>
+        {darkMode ? "Dark" : "Light"}
+      </Text>
       <Switch
         value={darkMode}
         onValueChange={() => dispatch(toggleDarkMode())}
@@ -188,149 +170,122 @@ function DarkModeSwitch() {
  * 3) Integrating native modules (expo-haptics, expo-device)
  ********************/
 
-function CounterCard() {
-  const dispatch = useDispatch();
-  const value = useSelector((s) => s.counter.value);
-  const [customAmount, setCustomAmount] = useState("1");
-
-  const bump = async (delta) => {
-    // Haptic feedback for good UX
-    await Haptics.selectionAsync();
-    dispatch(addByAmount(delta));
-  };
-
-  return (
-    <Card style={styles.card}>
-      <Card.Title title="Counter (Redux)" subtitle="Actions, reducers, store" left={(props) => <Avatar.Icon {...props} icon="counter" />} />
-      <Card.Content>
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-          <Badge size={32} style={{ marginRight: 12 }}>{value}</Badge>
-          <View style={{ flexDirection: "row", gap: 8 }}>
-            <Button accessibilityLabel="Decrement" onPress={() => dispatch(decrement())} mode="outlined">-1</Button>
-            <Button accessibilityLabel="Increment" onPress={() => dispatch(increment())} mode="contained">+1</Button>
-            <Button accessibilityLabel="Reset" onPress={() => dispatch(reset())}>Reset</Button>
-          </View>
-        </View>
-        <Divider style={{ marginVertical: 12 }} />
-        <TextInput
-          label="Custom amount"
-          keyboardType="number-pad"
-          value={customAmount}
-          onChangeText={setCustomAmount}
-          right={<TextInput.Affix text="±" />}
-        />
-        <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
-          <Button onPress={() => bump(Number(customAmount) || 0)} mode="contained">Add</Button>
-          <Button onPress={() => bump(-(Number(customAmount) || 0))} mode="outlined">Subtract</Button>
-        </View>
-      </Card.Content>
-    </Card>
-  );
-}
-
 function TodosCard() {
   const dispatch = useDispatch();
   const items = useSelector((s) => s.todos.items);
+
+  // Alias the action creator to avoid name conflict with the state boolean
+  const { showAddTodoBanner: showAddTodoBannerAction, dismissAddTodoBanner } = uiSlice.actions;
+
   const [title, setTitle] = useState("");
   const { width } = useWindowDimensions();
-  const numColumns = width >= 900 ? 2 : 1; // responsive list
+  const numColumns = width >= 900 ? 2 : 1;
+
+  // Split items into undone and done arrays
+  const undoneItems = items.filter((item) => !item.done);
+  const doneItems = items.filter((item) => item.done);
+
+  // Show banner and auto dismiss
+  const showBannerWithTimeout = () => {
+    dispatch(showAddTodoBannerAction());
+    setTimeout(() => {
+      dispatch(dismissAddTodoBanner());
+    }, 3000);
+  };
+
+  const onAddTodo = () => {
+    if (!title.trim()) return;
+    dispatch(addTodo(title.trim()));
+    setTitle("");
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    showBannerWithTimeout();
+  };
+
+  // Reusable render function for todo cards
+  const renderTodoItem = ({ item }) => (
+    <Card style={{ flex: 1, marginRight: numColumns > 1 ? 8 : 0 }}>
+      <Card.Title
+        title={item.title}
+        subtitle={new Date(item.createdAt).toLocaleString()}
+        left={(props) => <Avatar.Icon {...props} icon={item.done ? "check" : "circle-outline"} />}
+      />
+      <Card.Actions>
+        <Button onPress={() => dispatch(toggleTodo(item.id))}>{item.done ? "Undo" : "Done"}</Button>
+        <Button onPress={() => dispatch(removeTodo(item.id))} textColor="#d11">
+          Remove
+        </Button>
+      </Card.Actions>
+    </Card>
+  );
 
   return (
     <Card style={styles.card}>
-      <Card.Title title="Todos (Redux list)" subtitle="Responsive FlatList" left={(props) => <Avatar.Icon {...props} icon="check-circle-outline" />} />
+      <Card.Title
+        title="Todos (Redux list)"
+        subtitle="Separate Done and Undone lists"
+        left={(props) => <Avatar.Icon {...props} icon="check-circle-outline" />}
+      />
       <Card.Content>
+        {/* Input + Add button */}
         <View style={{ flexDirection: "row", gap: 8 }}>
           <TextInput
             style={{ flex: 1 }}
             label="What needs doing?"
             value={title}
             onChangeText={setTitle}
-            onSubmitEditing={() => {
-              if (!title.trim()) return;
-              dispatch(addTodo(title.trim()));
-              setTitle("");
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            }}
+            onSubmitEditing={onAddTodo}
             returnKeyType="done"
           />
-          <Button mode="contained" onPress={() => {
-            if (!title.trim()) return;
-            dispatch(addTodo(title.trim()));
-            setTitle("");
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          }}>Add</Button>
+          <Button mode="contained" onPress={onAddTodo}>
+            Add
+          </Button>
         </View>
+
         <Divider style={{ marginVertical: 12 }} />
 
-        <FlatList
-          data={items}
-          key={numColumns}
-          numColumns={numColumns}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={{ gap: 8 }}
-          renderItem={({ item }) => (
-            <Card style={{ flex: 1, marginRight: numColumns > 1 ? 8 : 0 }}>
-              <Card.Title
-                title={item.title}
-                subtitle={new Date(item.createdAt).toLocaleString()}
-                left={(props) => <Avatar.Icon {...props} icon={item.done ? "check" : "circle-outline"} />}
-              />
-              <Card.Actions>
-                <Button onPress={() => dispatch(toggleTodo(item.id))}>{item.done ? "Undo" : "Done"}</Button>
-                <Button onPress={() => dispatch(removeTodo(item.id))} textColor="#d11">Remove</Button>
-              </Card.Actions>
-            </Card>
-          )}
-          ListEmptyComponent={<Text accessibilityLabel="Empty list">No todos yet. Add one above.</Text>}
-        />
-        {items.length > 0 && (
-          <Button style={{ marginTop: 8 }} onPress={() => dispatch(clearTodos())}>Clear All</Button>
+        {/* Undone todos */}
+        {undoneItems.length === 0 ? (
+          <Text accessibilityLabel="Empty undone list"></Text>
+        ) : (
+          <FlatList
+            data={undoneItems}
+            key={numColumns}
+            numColumns={numColumns}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={{ gap: 8 }}
+            renderItem={renderTodoItem}
+          />
         )}
-      </Card.Content>
-    </Card>
-  );
-}
 
-function LibraryCard() {
-  return (
-    <Card style={styles.card}>
-      <Card.Title title="Third‑party UI library" subtitle="React Native Paper components" left={(props) => <Avatar.Icon {...props} icon="palette" />} />
-      <Card.Content>
-        <Text>
-          This app uses <Text style={{ fontWeight: "bold" }}>react-native-paper</Text> for theming, typography, and accessible UI primitives.
-          Try toggling dark mode above and notice automatic color adaptation.
-        </Text>
-        <View style={{ height: 12 }} />
-        <Text>Other popular libraries you can explore:</Text>
-        <View style={{ height: 6 }} />
-        <Text>• React Navigation — screens & stacks</Text>
-        <Text>• React Native Elements — alternative UI kit</Text>
-        <Text>• Reanimated/Gesture Handler — high‑performance gestures</Text>
-      </Card.Content>
-    </Card>
-  );
-}
-
-function NativeModulesCard() {
-  return (
-    <Card style={styles.card}>
-      <Card.Title title="Native modules" subtitle="Expo Haptics & Device" left={(props) => <Avatar.Icon {...props} icon="cellphone" />} />
-      <Card.Content>
-        <Text>Press the button below to feel haptic feedback (supported devices only).</Text>
-        <View style={{ height: 8 }} />
-        <Button
-          mode="contained"
-          onPress={() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)}
-          accessibilityHint="Triggers a short vibration if available"
-        >
-          Trigger Haptic Success
-        </Button>
         <Divider style={{ marginVertical: 12 }} />
-        <Text selectable>
-          Device: {Device.deviceName || "Unknown"} ({Device.brand || "?"})\n
-          Model: {Device.modelName || "?"}\n
-          OS: {Device.osName} {Device.osVersion}
-        </Text>
+
+        {/* Done todos */}
+        {doneItems.length > 0 && (
+          <>
+            <Text variant="titleMedium" style={{ marginBottom: 8 }}>
+              Completed
+            </Text>
+            <FlatList
+              data={doneItems}
+              key={numColumns + 1} // different key to re-render separately
+              numColumns={numColumns}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={{ gap: 8 }}
+              renderItem={renderTodoItem}
+            />
+          </>
+        )}
+        {doneItems.length === 0 && (
+          <Text accessibilityLabel="Empty done list"></Text>
+        )}
+
+
+        {/* Clear All button */}
+        {items.length > 0 && (
+          <Button style={{ marginTop: 8 }} onPress={() => dispatch(clearTodos())}>
+            Clear All
+          </Button>
+        )}
       </Card.Content>
     </Card>
   );
